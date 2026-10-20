@@ -185,7 +185,9 @@ function choose(code, btn, buttons) {
 
   const fb = game.querySelector(".feedback");
   fb.className = "feedback " + (right ? "good" : "bad");
-  fb.textContent = right ? "Correct!" : `Wrong — it was ${COUNTRIES[q.answer]}.`;
+  fb.textContent = right ? "Correct!"
+    : q.mode === "flag" ? `Wrong — it was ${COUNTRIES[q.answer]}.`
+    : `Wrong — that's the flag of ${COUNTRIES[code]}.`;
   updateStatus();
 
   setTimeout(() => { index++; render(); }, right ? 900 : 1800);
