@@ -50,6 +50,10 @@
   .feedback.good { color: var(--good); }
   .feedback.bad { color: var(--bad); }
   .score { font-size: 3rem; font-weight: 800; margin: 8px 0; }
+  .share {
+    font: inherit; font-weight: 600; background: var(--good); color: #fff; border: 0;
+    border-radius: 10px; padding: 12px 28px; cursor: pointer; margin-top: 4px;
+  }
   .hidden { display: none; }
 </style>
 </head>
@@ -138,7 +142,7 @@ function loadProgress(date) {
 }
 function saveProgress(nextIndex) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ date, index: nextIndex, score }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ date, index: nextIndex, score, results }));
   } catch (e) {}
 }
 
@@ -153,7 +157,10 @@ function shuffle(arr) {
   return a;
 }
 
-let questions, index, score, date;
+const SITE_URL = "https://robert-mue.github.io/flagle/";
+
+// results is one character per answered question: "1" right, "0" wrong
+let questions, index, score, date, results;
 
 function start() {
   date = todayUTC();
@@ -169,6 +176,7 @@ function start() {
   const saved = loadProgress(date);
   index = saved ? saved.index : 0;
   score = saved ? saved.score : 0;
+  results = (saved && saved.results) || "";
   render();
 }
 
@@ -221,6 +229,7 @@ function choose(code, btn, buttons) {
   buttons[q.options.indexOf(q.answer)].classList.add("correct");
   if (!right) btn.classList.add("wrong");
   if (right) score++;
+  results += right ? "1" : "0";
   // Save before the feedback delay so a reload can't retry this question
   saveProgress(index + 1);
 
@@ -238,7 +247,10 @@ function renderEnd() {
   game.innerHTML = `
     <p class="prompt">Final score</p>
     <div class="score">${score} / ${TOTAL}</div>
+    <button class="share" id="share">Share</button>
+    <p class="feedback good" id="copied"></p>
     <p class="prompt" id="next"></p>`;
+  document.getElementById("share").addEventListener("click", share);
   const nextEl = document.getElementById("next");
   const tick = () => {
     const now = new Date();
@@ -250,6 +262,31 @@ function renderEnd() {
   };
   const timer = setInterval(tick, 1000);
   tick();
+}
+
+function shareText() {
+  // One row per round: flag→name, then name→flag
+  const toSquares = r => r.replace(/1/g, "🟩").replace(/0/g, "🟥");
+  const rows = [results.slice(0, PER_ROUND), results.slice(PER_ROUND)].filter(Boolean).map(toSquares);
+  return [`Flagle ${date} ${score}/${TOTAL}`, ...rows, SITE_URL].join("\n");
+}
+
+async function share() {
+  const text = shareText();
+  const copiedEl = document.getElementById("copied");
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch (e) {
+    // Fallback for browsers or contexts without the async clipboard API
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand("copy");
+    ta.remove();
+  }
+  copiedEl.textContent = "Copied to clipboard!";
+  setTimeout(() => (copiedEl.textContent = ""), 2000);
 }
 
 start();
