@@ -49,10 +49,6 @@
   .feedback { min-height: 1.6em; margin-top: 14px; font-weight: 600; }
   .feedback.good { color: var(--good); }
   .feedback.bad { color: var(--bad); }
-  .primary {
-    font: inherit; font-weight: 600; background: var(--accent); color: #fff; border: 0;
-    border-radius: 10px; padding: 12px 24px; cursor: pointer; margin-top: 12px;
-  }
   .score { font-size: 3rem; font-weight: 800; margin: 8px 0; }
   .hidden { display: none; }
 </style>
@@ -198,9 +194,7 @@ function choose(code, btn, buttons) {
 function renderEnd() {
   game.innerHTML = `
     <p class="prompt">Final score</p>
-    <div class="score">${score} / ${TOTAL}</div>
-    <button class="primary" id="again">Play again</button>`;
-  document.getElementById("again").addEventListener("click", start);
+    <div class="score">${score} / ${TOTAL}</div>`;
 }
 
 start();
