@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flagle</title>
+<style>
+  :root {
+    --bg: #f4f5f7; --card: #fff; --text: #1d2330; --muted: #6b7280;
+    --accent: #2f6fed; --good: #1a9e55; --bad: #d64545; --border: #dde1e7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171c; --card: #1e232b; --text: #e8eaee; --muted: #9aa3b2;
+      --accent: #5b8dff; --good: #2fbf71; --bad: #ef6464; --border: #2e3540;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: flex; justify-content: center; padding: 24px 16px;
+  }
+  main { width: 100%; max-width: 640px; }
+  header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 16px; }
+  h1 { margin: 0; font-size: 1.8rem; }
+  .status { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 20px; text-align: center;
+  }
+  .prompt { font-size: 1.1rem; color: var(--muted); margin: 0 0 12px; }
+  .big-flag { width: 100%; max-width: 360px; aspect-ratio: 3 / 2; object-fit: contain; margin: 0 auto 20px; display: block; }
+  .country-name { font-size: 1.8rem; font-weight: 700; margin: 0 0 20px; }
+  .options { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+  .options.flags { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 480px) { .options.flags { grid-template-columns: 1fr 1fr; } }
+  button.opt {
+    font: inherit; font-size: 1rem; color: var(--text); background: var(--bg);
+    border: 2px solid var(--border); border-radius: 10px; padding: 12px 8px;
+    cursor: pointer; transition: border-color .15s, transform .05s;
+  }
+  button.opt:hover:not(:disabled) { border-color: var(--accent); }
+  button.opt:active:not(:disabled) { transform: scale(.98); }
+  button.opt:disabled { cursor: default; }
+  button.opt img { width: 100%; aspect-ratio: 3 / 2; object-fit: contain; display: block; }
+  button.opt.correct { border-color: var(--good); background: color-mix(in srgb, var(--good) 15%, var(--bg)); }
+  button.opt.wrong { border-color: var(--bad); background: color-mix(in srgb, var(--bad) 15%, var(--bg)); }
+  .feedback { min-height: 1.6em; margin-top: 14px; font-weight: 600; }
+  .feedback.good { color: var(--good); }
+  .feedback.bad { color: var(--bad); }
+  .primary {
+    font: inherit; font-weight: 600; background: var(--accent); color: #fff; border: 0;
+    border-radius: 10px; padding: 12px 24px; cursor: pointer; margin-top: 12px;
+  }
+  .score { font-size: 3rem; font-weight: 800; margin: 8px 0; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Flagle</h1>
+    <span class="status" id="status"></span>
+  </header>
+  <div class="card" id="game"></div>
+</main>
+
+<script>
+const COUNTRIES = {
+  af:"Afghanistan", al:"Albania", dz:"Algeria", ad:"Andorra", ao:"Angola", ag:"Antigua and Barbuda",
+  ar:"Argentina", am:"Armenia", au:"Australia", at:"Austria", az:"Azerbaijan", bs:"Bahamas",
+  bh:"Bahrain", bd:"Bangladesh", bb:"Barbados", by:"Belarus", be:"Belgium", bz:"Belize",
+  bj:"Benin", bt:"Bhutan", bo:"Bolivia", ba:"Bosnia and Herzegovina", bw:"Botswana", br:"Brazil",
+  bn:"Brunei", bg:"Bulgaria", bf:"Burkina Faso", bi:"Burundi", cv:"Cape Verde", kh:"Cambodia",
+  cm:"Cameroon", ca:"Canada", cf:"Central African Republic", td:"Chad", cl:"Chile", cn:"China",
+  co:"Colombia", km:"Comoros", cg:"Congo", cd:"DR Congo", cr:"Costa Rica", ci:"Côte d'Ivoire",
+  hr:"Croatia", cu:"Cuba", cy:"Cyprus", cz:"Czechia", dk:"Denmark", dj:"Djibouti",
+  dm:"Dominica", do:"Dominican Republic", ec:"Ecuador", eg:"Egypt", sv:"El Salvador", gq:"Equatorial Guinea",
+  er:"Eritrea", ee:"Estonia", sz:"Eswatini", et:"Ethiopia", fj:"Fiji", fi:"Finland",
+  fr:"France", ga:"Gabon", gm:"Gambia", ge:"Georgia", de:"Germany", gh:"Ghana",
+  gr:"Greece", gd:"Grenada", gt:"Guatemala", gn:"Guinea", gw:"Guinea-Bissau", gy:"Guyana",
+  ht:"Haiti", hn:"Honduras", hu:"Hungary", is:"Iceland", in:"India", id:"Indonesia",
+  ir:"Iran", iq:"Iraq", ie:"Ireland", il:"Israel", it:"Italy", jm:"Jamaica",
+  jp:"Japan", jo:"Jordan", kz:"Kazakhstan", ke:"Kenya", ki:"Kiribati", kw:"Kuwait",
+  kg:"Kyrgyzstan", la:"Laos", lv:"Latvia", lb:"Lebanon", ls:"Lesotho", lr:"Liberia",
+  ly:"Libya", li:"Liechtenstein", lt:"Lithuania", lu:"Luxembourg", mg:"Madagascar", mw:"Malawi",
+  my:"Malaysia", mv:"Maldives", ml:"Mali", mt:"Malta", mh:"Marshall Islands", mr:"Mauritania",
+  mu:"Mauritius", mx:"Mexico", fm:"Micronesia", md:"Moldova", mc:"Monaco", mn:"Mongolia",
+  me:"Montenegro", ma:"Morocco", mz:"Mozambique", mm:"Myanmar", na:"Namibia", nr:"Nauru",
+  np:"Nepal", nl:"Netherlands", nz:"New Zealand", ni:"Nicaragua", ne:"Niger", ng:"Nigeria",
+  kp:"North Korea", mk:"North Macedonia", no:"Norway", om:"Oman", pk:"Pakistan", pw:"Palau",
+  pa:"Panama", pg:"Papua New Guinea", py:"Paraguay", pe:"Peru", ph:"Philippines", pl:"Poland",
+  pt:"Portugal", qa:"Qatar", ro:"Romania", ru:"Russia", rw:"Rwanda", kn:"Saint Kitts and Nevis",
+  lc:"Saint Lucia", vc:"Saint Vincent and the Grenadines", ws:"Samoa", sm:"San Marino", st:"São Tomé and Príncipe", sa:"Saudi Arabia",
+  sn:"Senegal", rs:"Serbia", sc:"Seychelles", sl:"Sierra Leone", sg:"Singapore", sk:"Slovakia",
+  si:"Slovenia", sb:"Solomon Islands", so:"Somalia", za:"South Africa", kr:"South Korea", ss:"South Sudan",
+  es:"Spain", lk:"Sri Lanka", sd:"Sudan", sr:"Suriname", se:"Sweden", ch:"Switzerland",
+  sy:"Syria", tw:"Taiwan", tj:"Tajikistan", tz:"Tanzania", th:"Thailand", tl:"Timor-Leste",
+  tg:"Togo", to:"Tonga", tt:"Trinidad and Tobago", tn:"Tunisia", tr:"Turkey", tm:"Turkmenistan",
+  tv:"Tuvalu", ug:"Uganda", ua:"Ukraine", ae:"United Arab Emirates", gb:"United Kingdom", us:"United States",
+  uy:"Uruguay", uz:"Uzbekistan", vu:"Vanuatu", va:"Vatican City", ve:"Venezuela", vn:"Vietnam",
+  ye:"Yemen", zm:"Zambia", zw:"Zimbabwe"
+};
+const CODES = Object.keys(COUNTRIES);
+const PER_ROUND = 5;
+const OPTIONS = 6;
+const TOTAL = PER_ROUND * 2;
+
+const game = document.getElementById("game");
+const statusEl = document.getElementById("status");
+
+const flagUrl = code => `https://flagcdn.com/w320/${code}.png`;
+
+function shuffle(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+let questions, index, score;
+
+function start() {
+  // 10 distinct answer countries: first 5 are flag→name, last 5 are name→flag
+  const answers = shuffle(CODES).slice(0, TOTAL);
+  questions = answers.map((answer, i) => {
+    const decoys = shuffle(CODES.filter(c => c !== answer)).slice(0, OPTIONS - 1);
+    return { answer, options: shuffle([answer, ...decoys]), mode: i < PER_ROUND ? "flag" : "name" };
+  });
+  // Preload all flag images so they appear instantly
+  questions.forEach(q => q.options.forEach(c => { new Image().src = flagUrl(c); }));
+  index = 0;
+  score = 0;
+  render();
+}
+
+function updateStatus() {
+  statusEl.textContent = index < TOTAL
+    ? `Question ${index + 1} / ${TOTAL} · Score ${score}`
+    : "";
+}
+
+function render() {
+  updateStatus();
+  if (index >= TOTAL) return renderEnd();
+
+  const q = questions[index];
+  const isFlagMode = q.mode === "flag";
+  game.innerHTML = isFlagMode
+    ? `<p class="prompt">Which country does this flag belong to?</p>
+       <img class="big-flag" src="${flagUrl(q.answer)}" alt="Mystery flag">
+       <div class="options"></div>`
+    : `<p class="prompt">Which flag belongs to</p>
+       <p class="country-name">${COUNTRIES[q.answer]}</p>
+       <div class="options flags"></div>`;
+
+  const optsEl = game.querySelector(".options");
+  const buttons = q.options.map(code => {
+    const btn = document.createElement("button");
+    btn.className = "opt";
+    if (isFlagMode) {
+      btn.textContent = COUNTRIES[code];
+    } else {
+      const img = document.createElement("img");
+      img.src = flagUrl(code);
+      img.alt = "Flag option";
+      btn.appendChild(img);
+    }
+    btn.addEventListener("click", () => choose(code, btn, buttons));
+    optsEl.appendChild(btn);
+    return btn;
+  });
+
+  const fb = document.createElement("div");
+  fb.className = "feedback";
+  game.appendChild(fb);
+}
+
+function choose(code, btn, buttons) {
+  const q = questions[index];
+  const right = code === q.answer;
+  buttons.forEach(b => (b.disabled = true));
+  buttons[q.options.indexOf(q.answer)].classList.add("correct");
+  if (!right) btn.classList.add("wrong");
+  if (right) score++;
+
+  const fb = game.querySelector(".feedback");
+  fb.className = "feedback " + (right ? "good" : "bad");
+  fb.textContent = right ? "Correct!" : `Wrong — it was ${COUNTRIES[q.answer]}.`;
+  updateStatus();
+
+  setTimeout(() => { index++; render(); }, right ? 900 : 1800);
+}
+
+function renderEnd() {
+  game.innerHTML = `
+    <p class="prompt">Final score</p>
+    <div class="score">${score} / ${TOTAL}</div>
+    <button class="primary" id="again">Play again</button>`;
+  document.getElementById("again").addEventListener("click", start);
+}
+
+start();
+</script>
+</body>
+</html>
